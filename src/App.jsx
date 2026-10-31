@@ -1,139 +1,978 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
+import "./styles.css";
 
-const KEY = 'acl-course-pulse-v2';
+const STORAGE_KEY = "acl-course-pulse-v2";
 
-// Fictional teaching records for the self-contained UI/UX exercise.
-// Staff names and course descriptions are examples, not GUC historical records.
-const COURSE_CATALOG = {
+const COURSES = {
   CSEN701: {
-    name: 'Advanced Computer Lab',
-    description: 'A project-focused course emphasizing teamwork, planning, software development, and delivery across several milestones.',
+    name: "Advanced Computer Lab",
+    category: "Computer Science",
+    description: "A project-focused course emphasizing teamwork, planning, software development, and delivery across several milestones.",
     history: [
-      {year: '2025/26', instructors: ['Dr. Mariam Farouk'], tas: ['Yara Hassan', 'Omar Fawzy']},
-      {year: '2024/25', instructors: ['Dr. Karim Nabil'], tas: ['Nour Adel', 'Mina Sameh']},
-    ],
+      { year: "2025/26", instructors: ["Dr. Mariam Farouk"], tas: ["Yara Hassan", "Omar Fawzy"] },
+      { year: "2024/25", instructors: ["Dr. Karim Nabil"], tas: ["Nour Adel", "Mina Sameh"] }
+    ]
   },
   MATH204: {
-    name: 'Linear Algebra',
-    description: 'Vectors, matrices, linear systems, and mathematical methods used in technical problem solving.',
+    name: "Linear Algebra",
+    category: "Mathematics",
+    description: "Vectors, matrices, linear systems, and mathematical methods used in technical problem solving.",
     history: [
-      {year: '2025/26', instructors: ['Dr. Salma Younis'], tas: ['Layla Maher', 'Ahmed Sherif']},
-      {year: '2024/25', instructors: ['Dr. Rana Hamdy'], tas: ['Youssef Tarek', 'Dina Mourad']},
-    ],
+      { year: "2025/26", instructors: ["Dr. Salma Younis"], tas: ["Layla Maher", "Ahmed Sherif"] },
+      { year: "2024/25", instructors: ["Dr. Rana Hamdy"], tas: ["Youssef Tarek", "Dina Mourad"] }
+    ]
   },
   CSEN401: {
-    name: 'Software Engineering',
-    description: 'Software requirements, architecture, implementation practices, testing, and collaborative development.',
+    name: "Software Engineering",
+    category: "Computer Science",
+    description: "Software requirements, architecture, implementation practices, testing, and collaborative development.",
     history: [
-      {year: '2025/26', instructors: ['Dr. Tamer Elsayed'], tas: ['Rana Fathy', 'Adham Khalil']},
-      {year: '2024/25', instructors: ['Dr. Hala Mansour'], tas: ['Malak Samir', 'Ali Mahmoud']},
-    ],
+      { year: "2025/26", instructors: ["Dr. Tamer Elsayed"], tas: ["Rana Fathy", "Adham Khalil"] },
+      { year: "2024/25", instructors: ["Dr. Hala Mansour"], tas: ["Malak Samir", "Ali Mahmoud"] }
+    ]
   },
   HUMA101: {
-    name: 'Critical Thinking & Communication',
-    description: 'A discussion-based course about assessing arguments, presenting ideas, and communicating effectively.',
+    name: "Critical Thinking & Communication",
+    category: "Humanities",
+    description: "A discussion-based course about assessing arguments, presenting ideas, and communicating effectively.",
     history: [
-      {year: '2025/26', instructors: ['Dr. Dina Saad'], tas: ['Mariam Hossam', 'Youssef Nader']},
-      {year: '2024/25', instructors: ['Dr. Reem Taha'], tas: ['Farah Amr', 'Sara Magdy']},
-    ],
+      { year: "2025/26", instructors: ["Dr. Dina Saad"], tas: ["Mariam Hossam", "Youssef Nader"] },
+      { year: "2024/25", instructors: ["Dr. Reem Taha"], tas: ["Farah Amr", "Sara Magdy"] }
+    ]
   },
   CSEN202: {
-    name: 'Data Structures',
-    description: 'Core data organization techniques and algorithms, with a focus on selecting suitable structures for different problems.',
+    name: "Data Structures",
+    category: "Computer Science",
+    description: "Core data organization techniques and algorithms, with a focus on selecting suitable structures for different problems.",
     history: [
-      {year: '2025/26', instructors: ['Dr. Amina Rashed'], tas: ['Rami Elshamy', 'Nada Wael']},
-      {year: '2024/25', instructors: ['Dr. Yasser Salem'], tas: ['Hana Ehab', 'Bassel Mostafa']},
-    ],
-  },
+      { year: "2025/26", instructors: ["Dr. Amina Rashed"], tas: ["Rami Elshamy", "Nada Wael"] },
+      { year: "2024/25", instructors: ["Dr. Yasser Salem"], tas: ["Hana Ehab", "Bassel Mostafa"] }
+    ]
+  }
 };
-const getCourse = code => COURSE_CATALOG[code?.toUpperCase()] || {
-  name: 'Course details not yet added',
-  description: 'This course does not have a profile in the example catalog.',
-  history: [],
-};
-const readRoute = () => {
-  const match = window.location.hash.match(/^#\/courses\/([^/?#]+)$/);
-  return match ? decodeURIComponent(match[1]).toUpperCase() : null;
-};
-const seed = [
-  {id:'r1',courseCode:'CSEN701',rating:4,comment:'A challenging team project. The weekly milestones helped.',owner:'you',name:'You',date:'2026-10-06'},
-  {id:'r2',courseCode:'CSEN701',rating:5,comment:'You learn the most when your group communicates well.',owner:'other',name:'Farida',date:'2026-10-02'},
-  {id:'r3',courseCode:'MATH204',rating:3,comment:'Useful material but the pace felt fast.',owner:'other',name:'Karim',date:'2026-09-28'},
-  {id:'r4',courseCode:'CSEN401',rating:4,comment:'Tutorial exercises are very important.',owner:'you',name:'You',date:'2026-09-24'},
-  {id:'r5',courseCode:'HUMA101',rating:5,comment:'Well organized and approachable.',owner:'other',name:'Mariam',date:'2026-09-21'},
-  {id:'r6',courseCode:'CSEN701',rating:3,comment:'Good practical work, but demanding during exam week.',owner:'other',name:'Youssef',date:'2026-09-15'},
-  {id:'r7',courseCode:'MATH204',rating:5,comment:'Excellent explanation of difficult concepts.',owner:'other',name:'Nadine',date:'2026-08-30'},
-  {id:'r8',courseCode:'CSEN401',rating:2,comment:'More worked examples in lectures would help.',owner:'other',name:'Adam',date:'2026-08-17'},
-  {id:'r9',courseCode:'CSEN202',rating:4,comment:'The assignments strengthened problem-solving skills.',owner:'other',name:'Hassan',date:'2026-08-09'},
+
+const SEED_REVIEWS = [
+  { id: "r1", courseCode: "CSEN701", rating: 4, comment: "A challenging team project. The weekly milestones helped.", owner: "you", name: "You", date: "2026-10-06" },
+  { id: "r2", courseCode: "CSEN701", rating: 5, comment: "You learn the most when your group communicates well.", owner: "other", name: "Farida", date: "2026-10-02" },
+  { id: "r3", courseCode: "MATH204", rating: 3, comment: "Useful material but the pace felt fast.", owner: "other", name: "Karim", date: "2026-09-28" },
+  { id: "r4", courseCode: "CSEN401", rating: 4, comment: "Tutorial exercises are very important.", owner: "you", name: "You", date: "2026-09-24" },
+  { id: "r5", courseCode: "HUMA101", rating: 5, comment: "Well organized and approachable.", owner: "other", name: "Mariam", date: "2026-09-21" },
+  { id: "r6", courseCode: "CSEN701", rating: 3, comment: "Good practical work, but demanding during exam week.", owner: "other", name: "Youssef", date: "2026-09-15" },
+  { id: "r7", courseCode: "MATH204", rating: 5, comment: "Excellent explanation of difficult concepts.", owner: "other", name: "Nadine", date: "2026-08-30" },
+  { id: "r8", courseCode: "CSEN401", rating: 2, comment: "More worked examples in lectures would help.", owner: "other", name: "Adam", date: "2026-08-17" },
+  { id: "r9", courseCode: "CSEN202", rating: 4, comment: "The assignments strengthened problem-solving skills.", owner: "other", name: "Hassan", date: "2026-08-09" }
 ];
-function getSaved(){try {let s=JSON.parse(localStorage.getItem(KEY));return Array.isArray(s)?s:seed;}catch{return seed;}}
-const avg = a => a.length?(a.reduce((s,r)=>s+r.rating,0)/a.length).toFixed(1):'—';
-const stars = n => '★'.repeat(n)+'☆'.repeat(Math.max(0,5-n));
-export default function App(){
- const [reviews,setReviews] = useState(getSaved);
- const [search,setSearch] = useState('');
- const [rating,setRating] = useState('all');
- const [course,setCourse] = useState('CSEN701');
- const [editor,setEditor] = useState(null);
- const [error,setError] = useState('');
- const [notice,setNotice] = useState('');
- const [tab,setTab] = useState('Overview');
- const [activeCourseCode,setActiveCourseCode] = useState(readRoute);
- useEffect(()=>{
-  const changePage = () => {setActiveCourseCode(readRoute());window.scrollTo({top:0,behavior:'instant'});};
-  window.addEventListener('hashchange',changePage);
-  return ()=>window.removeEventListener('hashchange',changePage);
- },[]);
- const openCourse = code => {window.location.hash=`#/courses/${encodeURIComponent(code)}`;setActiveCourseCode(code.toUpperCase());window.scrollTo({top:0,behavior:'instant'});};
- const navigateTo = (where) => {
-  window.location.hash='#/';
-  setActiveCourseCode(null);
-  if(where==='reviews')requestAnimationFrame(()=>document.getElementById('review-list')?.scrollIntoView({behavior:'smooth'}));
-  else window.scrollTo({top:0,behavior:'smooth'});
- };
- useEffect(()=>localStorage.setItem(KEY,JSON.stringify(reviews)),[reviews]);
- const result = useMemo(()=>reviews.filter(r=>(rating==='all'||r.rating===Number(rating))&&`${r.courseCode} ${r.comment} ${r.name}`.toLowerCase().includes(search.toLowerCase())),[reviews,search,rating]);
- const selected = reviews.filter(x=>x.courseCode.toUpperCase()===course.trim().toUpperCase());
- const uniqueCourses = [...new Set(reviews.map(x=>x.courseCode))];
- const distribution = [5,4,3,2,1].map(n=>({n,total:reviews.filter(r=>r.rating===n).length}));
- function openEditor(r){if(r&&r.owner!=='you')return;setError('');setEditor({id:r?.id||null, courseCode:r?.courseCode||'',rating:String(r?.rating||''),comment:r?.comment||''});}
- function submit(e){e.preventDefault();if(!editor.courseCode.trim()){setError('Enter a course code.');return;}if(!/^[1-5]$/.test(editor.rating)){setError('Rating must be from 1 to 5.');return;}if(reviews.some(r=>r.id!==editor.id&&r.owner==='you'&&r.courseCode.toLowerCase()===editor.courseCode.trim().toLowerCase())){setError('You have already reviewed this course.');return;}
- const payload={courseCode:editor.courseCode.trim().toUpperCase(),rating:Number(editor.rating),comment:editor.comment.trim(),name:'You',owner:'you',date:new Date().toISOString().slice(0,10)};
- if(editor.id){setReviews(reviews.map(r=>r.id===editor.id?{...r,...payload}:r));setNotice('Review updated.');}else{setReviews([{...payload,id:'r-'+Date.now()},...reviews]);setNotice('Review posted.');}
- setEditor(null);
- }
- function reset(){setReviews(seed);setSearch('');setRating('all');setCourse('CSEN701');setEditor(null);setNotice('Example data restored.');}
- return <div className="review-app">
-  <aside className="sidebar"><div className="logo"><span>✦</span> course<span>pulse</span></div><div className="side-caption">WORKSPACE</div><button className={tab==='Overview'?'active':''} onClick={()=>{setTab('Overview');navigateTo('top');}}><span>▦</span> Overview</button><button className={tab==='Browse'?'active':''} onClick={()=>{setTab('Browse');navigateTo('reviews');}}><span>≡</span> Browse reviews</button><button onClick={()=>openEditor(null)}><span>＋</span> Write a review</button><div className="side-caption gap">YOUR SPACE</div><button onClick={()=>{setSearch('You');setTab('Browse');navigateTo('reviews');}}><span>♡</span> Your reviews</button><div className="side-end"><div className="badge-face">Y</div><div><strong>Your account</strong><small>Student profile</small></div></div></aside>
-  <main className="content">{activeCourseCode ? (
-    <section className="course-detail-page">
-      <button type="button" className="back-to-reviews" onClick={()=>navigateTo('reviews')}>← Back to reviews</button>
-      <header className="course-hero">
-        <div><p className="eyebrow">COURSE PROFILE</p><h1>{getCourse(activeCourseCode).name}</h1><p className="course-id">{activeCourseCode}</p><p className="course-description">{getCourse(activeCourseCode).description}</p></div>
-        <div className="course-mini-score"><small>COURSE AVERAGE</small><strong>{avg(reviews.filter(r=>r.courseCode.toUpperCase()===activeCourseCode))}</strong><span>{reviews.filter(r=>r.courseCode.toUpperCase()===activeCourseCode).length} review(s)</span></div>
-      </header>
-      <div className="course-details-grid">
-        <section className="panel teaching-history"><h2>Teaching history</h2><p>Instructors and teaching assistants for the previous two academic years.</p>
-          {getCourse(activeCourseCode).history.length ? getCourse(activeCourseCode).history.map(entry=><div className="teaching-entry" key={entry.year}>
-            <h3>{entry.year}</h3><div><small>INSTRUCTOR{entry.instructors.length===1?'':'S'}</small><span>{entry.instructors.join(', ')}</span></div><div><small>TEACHING ASSISTANTS</small><span>{entry.tas.join(', ')}</span></div>
-          </div>) : <p className="history-empty">No example teaching records for this course.</p>}
-          <p className="teaching-disclaimer">Illustrative course and teaching records; staff names are fictional.</p>
+
+function loadReviews() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return Array.isArray(saved) ? saved : SEED_REVIEWS;
+  } catch {
+    return SEED_REVIEWS;
+  }
+}
+
+const courseInfo = code => COURSES[code] || {
+  name: "Course details not yet added",
+  category: "Other",
+  description: "This course does not have a profile in the example catalog.",
+  history: []
+};
+
+const average = items => items.length
+  ? (items.reduce((sum, review) => sum + review.rating, 0) / items.length).toFixed(1)
+  : "—";
+
+const stars = rating => "★".repeat(rating) + "☆".repeat(5 - rating);
+
+export default function App() {
+  const [reviews, setReviews] = useState(loadReviews);
+  const [page, setPage] = useState("overview");
+  const [activeCourse, setActiveCourse] = useState(null);
+  const [search, setSearch] = useState("");
+  const [courseSearch, setCourseSearch] = useState("");
+  const [ratingFilter, setRatingFilter] = useState("all");
+  const [editor, setEditor] = useState(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
+  }, [reviews]);
+
+  useEffect(() => {
+    const syncRoute = () => {
+      const match = window.location.hash.match(/^#\/courses\/([^/?#]+)$/);
+      setActiveCourse(match ? decodeURIComponent(match[1]).toUpperCase() : null);
+      if (!match) setPage("overview");
+    };
+
+    syncRoute();
+    window.addEventListener("hashchange", syncRoute);
+
+    return () => window.removeEventListener("hashchange", syncRoute);
+  }, []);
+
+  const openCourse = code => {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return;
+
+    window.location.hash = `#/courses/${encodeURIComponent(normalized)}`;
+    setActiveCourse(normalized);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const goTo = destination => {
+    window.location.hash = "/";
+    setActiveCourse(null);
+    setPage(destination);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const courseReviews = code =>
+    reviews.filter(review => review.courseCode === code);
+
+  const filteredReviews = useMemo(() =>
+    reviews.filter(review => {
+      const matchesRating =
+        ratingFilter === "all" ||
+        review.rating === Number(ratingFilter);
+
+      const text =
+        `${review.courseCode} ${courseInfo(review.courseCode).name} ${review.comment} ${review.name}`.toLowerCase();
+
+      return matchesRating && text.includes(search.toLowerCase());
+    }), [reviews, ratingFilter, search]);
+
+  const myReviews = reviews.filter(review => review.owner === "you");
+
+  const courseCards = Object.entries(COURSES).filter(([code, course]) =>
+    `${code} ${course.name} ${course.category}`
+      .toLowerCase()
+      .includes(courseSearch.toLowerCase())
+  );
+
+  function openEditor(review = null, presetCourse = "") {
+    if (review && review.owner !== "you") return;
+
+    setError("");
+
+    setEditor({
+      id: review?.id || null,
+      courseCode: review?.courseCode || presetCourse,
+      rating: review ? String(review.rating) : "",
+      comment: review?.comment || ""
+    });
+  }
+
+  function submitReview(event) {
+    event.preventDefault();
+
+    const code = editor.courseCode.trim().toUpperCase();
+
+    if (!code) {
+      return setError("Enter a course code.");
+    }
+
+    if (!/^[1-5]$/.test(editor.rating)) {
+      return setError("Rating must be a whole number from 1 to 5.");
+    }
+
+    const duplicate = reviews.some(review =>
+      review.id !== editor.id &&
+      review.owner === "you" &&
+      review.courseCode.toUpperCase() === code
+    );
+
+    if (duplicate) {
+      return setError(
+        "You have already reviewed this course. Edit your existing review instead."
+      );
+    }
+
+    const payload = {
+      courseCode: code,
+      rating: Number(editor.rating),
+      comment: editor.comment.trim(),
+      name: "You",
+      owner: "you",
+      date: new Date().toISOString().slice(0, 10)
+    };
+
+    if (editor.id) {
+      setReviews(current =>
+        current.map(review =>
+          review.id === editor.id
+            ? { ...review, ...payload }
+            : review
+        )
+      );
+
+      setNotice("Your review has been updated.");
+    } else {
+      setReviews(current => [
+        { ...payload, id: `r-${Date.now()}` },
+        ...current
+      ]);
+
+      setNotice("Your review has been published.");
+    }
+
+    setEditor(null);
+  }
+
+  function resetDemo() {
+    setReviews(SEED_REVIEWS);
+    setSearch("");
+    setCourseSearch("");
+    setRatingFilter("all");
+    setNotice("Example data restored.");
+  }
+
+  const allAverage = average(reviews);
+
+  const ratedCourses =
+    new Set(reviews.map(review => review.courseCode)).size;
+
+  const distribution = [5, 4, 3, 2, 1].map(value => ({
+    value,
+    count: reviews.filter(review => review.rating === value).length
+  }));
+
+  const maxDistribution = Math.max(
+    ...distribution.map(item => item.count),
+    1
+  );
+
+  return (
+    <div className="app-shell">
+
+      {/* LEFT SIDEBAR */}
+      <aside className="sidebar">
+
+        <button
+          className="brand"
+          onClick={() => goTo("overview")}
+          aria-label="CoursePulse home"
+        >
+          <span className="brand-mark">c.</span>
+          <span>
+            course<span className="brand-accent">pulse</span>
+          </span>
+        </button>
+
+        <div className="nav-label">WORKSPACE</div>
+
+        <button
+          className={`nav-item ${page === "overview" && !activeCourse ? "active" : ""}`}
+          onClick={() => goTo("overview")}
+        >
+          <span>⌂</span> Overview
+        </button>
+
+        <button
+          className={`nav-item ${page === "courses" ? "active" : ""}`}
+          onClick={() => goTo("courses")}
+        >
+          <span>▦</span> Explore courses
+        </button>
+
+        <button
+          className={`nav-item ${page === "reviews" ? "active" : ""}`}
+          onClick={() => goTo("reviews")}
+        >
+          <span>☷</span> Browse reviews
+        </button>
+
+        <div className="nav-label nav-spaced">YOUR SPACE</div>
+
+        <button
+          className={`nav-item ${page === "mine" ? "active" : ""}`}
+          onClick={() => goTo("mine")}
+        >
+          <span>♡</span> Your reviews
+        </button>
+
+        <div className="sidebar-bottom">
+          <div className="avatar">Y</div>
+          <div>
+            <strong>You</strong>
+            <small>Student account</small>
+          </div>
+        </div>
+
+      </aside>
+
+      <main className="main-content">
+
+        {notice && (
+          <div className="notice" role="status">
+            {notice}
+            <button onClick={() => setNotice("")} aria-label="Dismiss notice">
+              ×
+            </button>
+          </div>
+        )}
+
+        {activeCourse ? (
+
+          <CoursePage
+            code={activeCourse}
+            reviews={courseReviews(activeCourse)}
+            onBack={() => goTo("courses")}
+            onWrite={() => openEditor(null, activeCourse)}
+            onEdit={openEditor}
+          />
+
+        ) : page === "courses" ? (
+
+          <>
+            <PageHeading
+              eyebrow="FIND YOUR NEXT CLASS"
+              title="Explore courses"
+              description="Compare course feedback before making your choice."
+            />
+
+            <div className="toolbar">
+              <div className="search-field">
+                <span>⌕</span>
+                <input
+                  value={courseSearch}
+                  onChange={event => setCourseSearch(event.target.value)}
+                  placeholder="Search by course name or code..."
+                />
+              </div>
+              <span className="result-count">
+                {courseCards.length} courses
+              </span>
+            </div>
+
+            <div className="course-grid">
+              {courseCards.map(([code, course]) => {
+                const items = courseReviews(code);
+
+                return (
+                  <button
+                    className="course-card"
+                    key={code}
+                    onClick={() => openCourse(code)}
+                  >
+                    <div className="card-topline">
+                      <span className="course-category">
+                        {course.category}
+                      </span>
+                      <span className="card-arrow">↗</span>
+                    </div>
+
+                    <span className="course-code">{code}</span>
+
+                    <h2>{course.name}</h2>
+
+                    <p>{course.description}</p>
+
+                    <div className="course-card-footer">
+                      <span className="stars">
+                        {items.length
+                          ? stars(Math.round(Number(average(items))))
+                          : "☆☆☆☆☆"}
+                      </span>
+
+                      <strong>
+                        {average(items)} <small>/ 5</small>
+                      </strong>
+
+                      <span className="review-count">
+                        {items.length} reviews
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {!courseCards.length && (
+                <div className="empty-state">
+                  No courses match your search.
+                </div>
+              )}
+            </div>
+          </>
+
+        ) : page === "reviews" || page === "mine" ? (
+
+          <>
+            <PageHeading
+              eyebrow="STUDENT VOICES"
+              title={page === "mine" ? "Your reviews" : "Browse reviews"}
+              description={
+                page === "mine"
+                  ? "All the feedback you have shared with the community."
+                  : "Realistic sample feedback to help you compare courses."
+              }
+            />
+
+            <ReviewList
+              reviews={page === "mine" ? myReviews : filteredReviews}
+              onEdit={openEditor}
+              onCourse={openCourse}
+              search={search}
+              setSearch={setSearch}
+              ratingFilter={ratingFilter}
+              setRatingFilter={setRatingFilter}
+              onReset={resetDemo}
+              showReset={page === "reviews"}
+            />
+          </>
+
+        ) : (
+
+          <>
+            <PageHeading
+              eyebrow="ACADEMIC FEEDBACK PORTAL"
+              title="Choose with confidence."
+              description="A clearer view of courses, student experiences, and academic feedback."
+            />
+
+            <section className="welcome-panel">
+              <div>
+                <span className="welcome-kicker">
+                  YOUR COURSE COMPANION
+                </span>
+
+                <h2>
+                  Make your next course choice
+                  <br />
+                  a more informed one.
+                </h2>
+
+                <p>
+                  Explore course profiles, compare student ratings,
+                  and learn from previous experiences.
+                </p>
+
+                <button
+                  className="light-button"
+                  onClick={() => goTo("courses")}
+                >
+                  Explore courses <span>→</span>
+                </button>
+              </div>
+
+              <div className="welcome-art">
+                <div className="art-circle circle-one"></div>
+                <div className="art-circle circle-two"></div>
+
+                <div className="art-card">
+                  <span>COURSE INSIGHT</span>
+                  <strong>{allAverage}</strong>
+                  <small>community average / 5</small>
+                  <div className="art-stars">★★★★★</div>
+                </div>
+              </div>
+            </section>
+
+            <section className="stats-grid">
+              <StatCard
+                label="STUDENT REVIEWS"
+                value={reviews.length}
+                note="Community contributions"
+                icon="✎"
+              />
+
+              <StatCard
+                label="AVERAGE RATING"
+                value={`${allAverage} / 5`}
+                note="Across all submitted reviews"
+                icon="★"
+              />
+
+              <StatCard
+                label="COURSES REVIEWED"
+                value={ratedCourses}
+                note="Unique course codes"
+                icon="▦"
+              />
+            </section>
+
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">START EXPLORING</span>
+                <h2>Popular course profiles</h2>
+              </div>
+
+              <button
+                className="text-button"
+                onClick={() => goTo("courses")}
+              >
+                View all courses →
+              </button>
+            </div>
+
+            <div className="featured-grid">
+              {Object.entries(COURSES).slice(0, 3).map(([code, course]) => {
+                const items = courseReviews(code);
+
+                return (
+                  <button
+                    className="featured-card"
+                    key={code}
+                    onClick={() => openCourse(code)}
+                  >
+                    <span className="course-code">{code}</span>
+                    <h3>{course.name}</h3>
+                    <p>{course.category}</p>
+
+                    <div>
+                      <strong>{average(items)}</strong>
+                      <span> / 5 · {items.length} reviews</span>
+                      <b>↗</b>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="overview-bottom">
+
+              <section className="surface rating-breakdown">
+                <div className="section-heading compact">
+                  <div>
+                    <span className="section-kicker">COMMUNITY SIGNAL</span>
+                    <h2>Rating breakdown</h2>
+                  </div>
+                </div>
+
+                {distribution.map(item => (
+                  <div className="distribution-row" key={item.value}>
+                    <span>{item.value} ★</span>
+
+                    <div className="distribution-track">
+                      <i
+                        style={{
+                          width: `${item.count / maxDistribution * 100}%`
+                        }}
+                      />
+                    </div>
+
+                    <small>{item.count}</small>
+                  </div>
+                ))}
+              </section>
+
+              <section className="surface quick-review">
+                <span className="section-kicker">HAVE AN OPINION?</span>
+
+                <h2>
+                  Your experience can help someone choose.
+                </h2>
+
+                <p>
+                  Share what worked, what was challenging,
+                  and what future students should know.
+                </p>
+
+                <button
+                  className="primary-button"
+                  onClick={() => openEditor()}
+                >
+                  Write your review <span>→</span>
+                </button>
+              </section>
+
+            </div>
+          </>
+        )}
+
+      </main>
+
+      {editor && (
+        <ReviewModal
+          editor={editor}
+          setEditor={setEditor}
+          error={error}
+          onSubmit={submitReview}
+        />
+      )}
+
+    </div>
+  );
+}
+
+function PageHeading({ eyebrow, title, description }) {
+  return (
+    <header className="page-heading">
+      <div>
+        <span className="eyebrow">{eyebrow}</span>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+    </header>
+  );
+}
+
+function StatCard({ label, value, note, icon }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-icon">{icon}</div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{note}</small>
+    </div>
+  );
+}
+
+function CoursePage({ code, reviews, onBack, onWrite, onEdit }) {
+  const course = courseInfo(code);
+
+  return (
+    <section className="course-detail">
+
+      <button className="back-link" onClick={onBack}>
+        ← Back to courses
+      </button>
+
+      <div className="detail-hero">
+        <div>
+          <span className="eyebrow">
+            COURSE PROFILE · {course.category.toUpperCase()}
+          </span>
+
+          <span className="course-code detail-code">{code}</span>
+
+          <h1>{course.name}</h1>
+          <p>{course.description}</p>
+        </div>
+
+        <div className="detail-score">
+          <span>AVERAGE RATING</span>
+          <strong>{average(reviews)}</strong>
+          <small>out of 5 · {reviews.length} reviews</small>
+        </div>
+      </div>
+
+      <div className="detail-columns">
+
+        <section className="surface history-panel">
+          <div className="section-heading compact">
+            <div>
+              <span className="section-kicker">WHO TAUGHT IT?</span>
+              <h2>Teaching history</h2>
+            </div>
+          </div>
+
+          <p className="muted-copy">
+            Illustrative teaching information for the previous two academic years.
+          </p>
+
+          {course.history.length ? (
+            course.history.map(item => (
+              <div className="history-entry" key={item.year}>
+                <span className="year-pill">{item.year}</span>
+
+                <div>
+                  <small>
+                    INSTRUCTOR{item.instructors.length > 1 ? "S" : ""}
+                  </small>
+                  <p>{item.instructors.join(", ")}</p>
+                </div>
+
+                <div>
+                  <small>TEACHING ASSISTANTS</small>
+                  <p>{item.tas.join(", ")}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="empty-state">
+              No teaching records are available for this course.
+            </p>
+          )}
+
+          <div className="fictional-note">
+            ⓘ Sample data only. All staff names are fictional and are not historical GUC records.
+          </div>
         </section>
-        <section className="panel course-feedback"><div className="detail-review-head"><div><h2>Student reviews</h2><p>Feedback for {activeCourseCode} from the example community.</p></div><button className="post-review" onClick={()=>openEditor(null)}>＋ Write review</button></div>
-          {reviews.filter(r=>r.courseCode.toUpperCase()===activeCourseCode).length ? reviews.filter(r=>r.courseCode.toUpperCase()===activeCourseCode).map(r=><article className="course-review" key={r.id}>
-            <div className="course-review-top"><strong>{r.name}</strong><span>{stars(r.rating)}</span></div><p>{r.comment||'No comment provided'}</p><div className="course-review-meta"><span>Recently</span>{r.owner==='you'&&<button className="row-edit" onClick={()=>openEditor(r)}>Edit your review</button>}</div>
-          </article>) : <div className="course-review-empty">No reviews for this course yet.</div>}
+
+        <section className="surface feedback-panel">
+          <div className="section-heading compact">
+            <div>
+              <span className="section-kicker">LEARN FROM OTHERS</span>
+              <h2>Student reviews</h2>
+            </div>
+
+            <button
+              className="primary-button small-button"
+              onClick={onWrite}
+            >
+              ＋ Write review
+            </button>
+          </div>
+
+          <p className="muted-copy">
+            Feedback shared by students about {code}.
+          </p>
+
+          {reviews.length ? (
+            reviews.map(review => (
+              <article className="review-item" key={review.id}>
+                <div className="review-item-head">
+                  <div className="avatar small-avatar">
+                    {review.name === "You" ? "Y" : review.name.charAt(0)}
+                  </div>
+
+                  <div>
+                    <strong>{review.name}</strong>
+                    <small>{review.date}</small>
+                  </div>
+
+                  <span className="stars">{stars(review.rating)}</span>
+                </div>
+
+                <p>{review.comment || "No comment provided."}</p>
+
+                {review.owner === "you" && (
+                  <button
+                    className="text-button"
+                    onClick={() => onEdit(review)}
+                  >
+                    Edit your review
+                  </button>
+                )}
+              </article>
+            ))
+          ) : (
+            <div className="empty-state">
+              No reviews yet. Be the first to share your experience.
+            </div>
+          )}
         </section>
+
       </div>
     </section>
-  ) : <><header className="page-head"><div><p className="eyebrow">ACADEMIC FEEDBACK PORTAL</p><h1>Course Review Board</h1><p>One place for course feedback, course signals and student opinions.</p></div><button className="post-review" onClick={()=>openEditor(null)}>＋ Write review</button></header>
-   <section className="metrics"><div className="metric"><small>ALL REVIEWS</small><strong>{reviews.length}</strong><span>Community contributions</span></div><div className="metric"><small>AVERAGE SCORE</small><strong>{avg(reviews)} <em>/ 5</em></strong><span>Calculated across entries</span></div><div className="metric"><small>COURSES RATED</small><strong>{uniqueCourses.length}</strong><span>Unique course codes</span></div></section>
-   {notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice('')}>✕</button></div>}
-   <div className="analytic-grid"><section className="panel pulse"><div className="panel-head"><div><h2>Community rating overview</h2><p>Ratings from recent student submissions</p></div><span className="dots">···</span></div><div className="pulse-content"><div className="donut"><div><span>{avg(reviews)}</span><small>AVERAGE</small></div></div><div className="rating-bars">{distribution.map(d=><div key={d.n} className="rating-row"><span>{d.n}★</span><div className="barbg"><i style={{width:`${d.total/Math.max(...distribution.map(x=>x.total),1)*100}%`}}/></div><small>{d.total}</small></div>)}</div></div></section>
-    <section className="panel summary"><div className="panel-head"><div><h2>Course score lookup</h2><p>Check the average score for one course code.</p></div></div><label>Course code<input value={course} onChange={e=>setCourse(e.target.value)} placeholder="Course code"/></label><div className="score"><span>Overall rating</span><strong>{avg(selected)}</strong><small>{selected.length} review(s)</small></div><div className="banner">Data updates as new reviews are added.</div>{course.trim()&&<button type="button" className="lookup-course-link" onClick={()=>openCourse(course.trim().toUpperCase())}>View course details →</button>}</section></div>
-   <section className="review-list panel" id="review-list"><div className="panel-head reviews-heading"><div><h2>Explore student reviews</h2><p>Find a comment by course, rating or student.</p></div><button className="outline" onClick={reset}>Reset demo</button></div><div className="searchbar"><div className="searchinput"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search reviews" placeholder="Search"/></div><label><span>Rating</span><select value={rating} onChange={e=>setRating(e.target.value)}><option value="all">All ratings</option>{[5,4,3,2,1].map(n=><option key={n} value={n}>{n} stars</option>)}</select></label><button onClick={()=>{setNotice('Filter preferences applied.');setTab('Browse');}}>Apply</button></div><div className="rows-wrapper"><table><thead><tr><th>Course</th><th>Stars</th><th>Student comment</th><th>Reviewer</th><th>Date</th><th>Action</th></tr></thead><tbody>{result.map(r=><tr key={r.id}><td><button type="button" className="course-link" title={`View ${getCourse(r.courseCode).name}`} onClick={()=>openCourse(r.courseCode)}><strong>{r.courseCode}</strong><small>{getCourse(r.courseCode).name}</small></button></td><td className="ratingcell">{stars(r.rating)}</td><td className="commentcell">{r.comment||'No comment provided'}</td><td>{r.name}</td><td>Recently</td><td>{r.owner==='you'?<button className="row-edit" onClick={()=>openEditor(r)}>Edit</button>:<span className="dim">—</span>}</td></tr>)}{result.length===0&&<tr><td colSpan="6">No reviews found.</td></tr>}</tbody></table></div><p className="tablefoot">{result.length} of {reviews.length} reviews • Campus feedback platform</p></section>
-  </>}
-  </main>
-  {editor&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setEditor(null)}><div className="modal" role="dialog" aria-modal="true" aria-label="Write review"><div className="modal-title"><div><p className="eyebrow">YOUR CONTRIBUTION</p><h2>{editor.id?'Edit review':'Write a course review'}</h2><p>Share a rating and a short comment.</p></div><button onClick={()=>setEditor(null)} aria-label="Close">✕</button></div><form onSubmit={submit}><label>Course code<input value={editor.courseCode} onChange={e=>setEditor(s=>({...s,courseCode:e.target.value}))} placeholder="CSEN701"/></label><label>Overall rating<select value={editor.rating} onChange={e=>setEditor(s=>({...s,rating:e.target.value}))}><option value="">Choose score</option>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}</select></label><label>Comment<textarea value={editor.comment} rows={5} onChange={e=>setEditor(s=>({...s,comment:e.target.value}))} placeholder="Comment (optional)"/></label>{error&&<div className="formerror" role="alert">{error}</div>}<div className="modal-actions"><button type="button" onClick={()=>setEditor(null)}>Cancel</button><button className="post-review" type="submit">{editor.id?'Save review':'Submit review'}</button></div></form></div></div>}
- </div>;
+  );
+}
+
+function ReviewList({
+  reviews,
+  onEdit,
+  onCourse,
+  search,
+  setSearch,
+  ratingFilter,
+  setRatingFilter,
+  onReset,
+  showReset
+}) {
+  return (
+    <section className="surface review-browser">
+
+      <div className="filter-toolbar">
+        <div className="search-field">
+          <span>⌕</span>
+          <input
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder="Search course, comment, or student..."
+          />
+        </div>
+
+        <select
+          value={ratingFilter}
+          onChange={event => setRatingFilter(event.target.value)}
+          aria-label="Filter by rating"
+        >
+          <option value="all">All ratings</option>
+          {[5, 4, 3, 2, 1].map(value => (
+            <option value={value} key={value}>
+              {value} stars
+            </option>
+          ))}
+        </select>
+
+        {showReset && (
+          <button className="secondary-button" onClick={onReset}>
+            Reset demo
+          </button>
+        )}
+      </div>
+
+      {reviews.length ? (
+        <div className="review-table-wrap">
+          <table className="review-table">
+            <thead>
+              <tr>
+                <th>COURSE</th>
+                <th>RATING</th>
+                <th>STUDENT COMMENT</th>
+                <th>REVIEWER</th>
+                <th>DATE</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {reviews.map(review => (
+                <tr key={review.id}>
+                  <td>
+                    <button
+                      className="table-course-link"
+                      onClick={() => onCourse(review.courseCode)}
+                    >
+                      <strong>{review.courseCode}</strong>
+                      <small>{courseInfo(review.courseCode).name}</small>
+                    </button>
+                  </td>
+
+                  <td className="stars">{stars(review.rating)}</td>
+
+                  <td className="comment-cell">
+                    {review.comment || "No comment provided."}
+                  </td>
+
+                  <td>{review.name}</td>
+                  <td>{review.date}</td>
+
+                  <td>
+                    {review.owner === "you" ? (
+                      <button
+                        className="text-button"
+                        onClick={() => onEdit(review)}
+                      >
+                        Edit
+                      </button>
+                    ) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">
+          No reviews match your search.
+        </div>
+      )}
+
+      <div className="table-footer">
+        Showing {reviews.length} review{reviews.length === 1 ? "" : "s"}
+      </div>
+    </section>
+  );
+}
+
+function ReviewModal({ editor, setEditor, error, onSubmit }) {
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={event =>
+        event.target === event.currentTarget && setEditor(null)
+      }
+    >
+      <section
+        className="review-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-heading"
+      >
+        <div className="modal-heading">
+          <div>
+            <span className="eyebrow">YOUR CONTRIBUTION</span>
+            <h2 id="modal-heading">
+              {editor.id ? "Edit your review" : "Write a review"}
+            </h2>
+            <p>
+              Your feedback helps other students make informed choices.
+            </p>
+          </div>
+
+          <button
+            className="close-button"
+            onClick={() => setEditor(null)}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit}>
+          <label>
+            Course code
+            <input
+              autoFocus
+              value={editor.courseCode}
+              disabled={Boolean(editor.id)}
+              onChange={event =>
+                setEditor(current => ({
+                  ...current,
+                  courseCode: event.target.value
+                }))
+              }
+              placeholder="e.g. CSEN701"
+              required
+            />
+          </label>
+
+          <label>
+            Rating
+            <select
+              value={editor.rating}
+              onChange={event =>
+                setEditor(current => ({
+                  ...current,
+                  rating: event.target.value
+                }))
+              }
+              required
+            >
+              <option value="">Choose a rating</option>
+              {[5, 4, 3, 2, 1].map(value => (
+                <option value={value} key={value}>
+                  {value} — {
+                    value === 5 ? "Excellent" :
+                    value === 4 ? "Very good" :
+                    value === 3 ? "Good" :
+                    value === 2 ? "Fair" : "Poor"
+                  }
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Comment <span className="optional">(optional)</span>
+            <textarea
+              rows="5"
+              value={editor.comment}
+              onChange={event =>
+                setEditor(current => ({
+                  ...current,
+                  comment: event.target.value
+                }))
+              }
+              placeholder="What should other students know about this course?"
+            />
+          </label>
+
+          {error && (
+            <div className="form-error" role="alert">
+              {error}
+            </div>
+          )}
+
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setEditor(null)}
+            >
+              Cancel
+            </button>
+
+            <button type="submit" className="primary-button">
+              {editor.id ? "Save changes" : "Publish review"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
 }
